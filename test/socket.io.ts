@@ -2298,16 +2298,18 @@ describe("socket.io", () => {
         });
 
         sio.on("connection", (socket) => {
-          socket.on("join", (room) => {
+          socket.on("join", (room, cb) => {
             socket.join(room);
+            cb();
           });
           socket.on("broadcast", () => {
             socket.broadcast.except("room1").emit("a");
           });
         });
 
-        socket2.emit("join", "room1");
-        socket3.emit("broadcast");
+        socket2.emit("join", "room1", () => {
+          socket3.emit("broadcast");
+        });
       });
     });
   });
