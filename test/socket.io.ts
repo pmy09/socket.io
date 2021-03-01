@@ -840,15 +840,37 @@ describe("socket.io", () => {
           done();
         });
 
+        socket2.on("connect", () => {
+          nsp.except(socket2.id).emit("a");
+        });
+      });
+    });
+
+    it("should exclude a specific room when emitting", (done) => {
+      const srv = createServer();
+      const sio = new Server(srv);
+
+      const nsp = sio.of("/nsp");
+
+      srv.listen(() => {
+        const socket1 = client(srv, "/nsp");
+        const socket2 = client(srv, "/nsp");
+
+        socket1.on("a", () => {
+          done();
+        });
+        socket2.on("a", () => {
+          done(new Error("not"));
+        });
+
         nsp.on("connection", (socket) => {
-          socket.on("id", (cb) => {
-            cb(socket.id);
+          socket.on("broadcast", () => {
+            socket.join("room1");
+            nsp.except("room1").emit("a");
           });
         });
 
-        socket2.emit("id", (id) => {
-          nsp.except(id).emit("a");
-        });
+        socket2.emit("broadcast");
       });
     });
 
@@ -2245,17 +2267,47 @@ describe("socket.io", () => {
         });
 
         sio.on("connection", (socket) => {
-          socket.on("id", (cb) => {
-            cb(socket.id);
-          });
           socket.on("exclude", (id) => {
             socket.broadcast.except(id).emit("a");
           });
         });
 
-        socket2.emit("id", (id) => {
-          socket3.emit("exclude", id);
+        socket2.on("connect", () => {
+          socket3.emit("exclude", socket2.id);
         });
+      });
+    });
+
+    it("should exclude a specific room when broadcasting", (done) => {
+      const srv = createServer();
+      const sio = new Server(srv);
+
+      srv.listen(() => {
+        const socket1 = client(srv, { multiplex: false });
+        const socket2 = client(srv, { multiplex: false });
+        const socket3 = client(srv, { multiplex: false });
+
+        socket2.on("a", () => {
+          done(new Error("not"));
+        });
+        socket3.on("a", () => {
+          done(new Error("not"));
+        });
+        socket1.on("a", () => {
+          done();
+        });
+
+        sio.on("connection", (socket) => {
+          socket.on("join", (room) => {
+            socket.join(room);
+          });
+          socket.on("broadcast", () => {
+            socket.broadcast.except("room1").emit("a");
+          });
+        });
+
+        socket2.emit("join", "room1");
+        socket3.emit("broadcast");
       });
     });
   });
